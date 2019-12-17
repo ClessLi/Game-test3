@@ -2,7 +2,9 @@ package model
 
 import (
 	"fmt"
+	"github.com/ClessLi/Game-test/resource"
 	"github.com/ClessLi/Game-test/sprite"
+	"github.com/ClessLi/resolvForGame/resolv"
 )
 
 type Space []Shape
@@ -258,6 +260,15 @@ func (sp *Space) GetXY() (int32, int32) {
 
 }
 
+func (sp *Space) GetXY2() (int32, int32) {
+
+	if len(*sp) > 0 {
+		return (*sp)[0].GetXY2()
+	}
+	return 0, 0
+
+}
+
 // SetXY sets the X and Y position of all Shapes within the Space to the position provided using the first Shape's position as
 // reference. Basically, it moves the first Shape within the Space to the target location and then moves all other Shapes
 // by the same delta movement.
@@ -296,4 +307,15 @@ func (sp *Space) Get(index int) Shape {
 
 func (sp *Space) Draw(renderer *sprite.SpriteRenderer) {
 	// TO-DO: 图像集合空间渲染方法，目前暂在gameMap中Draw方法根据camera来判定集合空间内图像对象是否被渲染。
+}
+
+func (sp *Space) GetShapeObj() resolv.Shape {
+	if len(*sp) > 0 {
+		return (*sp)[0].GetShapeObj()
+	}
+	return nil
+}
+
+func (sp *Space) SetTexture(t *resource.Texture2D) {
+
 }

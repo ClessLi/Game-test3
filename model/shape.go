@@ -16,9 +16,11 @@ type Shape interface {
 	GetData() interface{}
 	SetData(interface{})
 	GetXY() (int32, int32)
+	GetXY2() (int32, int32)
 	SetXY(int32, int32)
 	Move(int32, int32)
 	Draw(*sprite.SpriteRenderer)
+	GetShapeObj() resolv.Shape
 }
 
 type Circle struct {

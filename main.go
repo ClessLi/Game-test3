@@ -8,15 +8,14 @@ import (
 )
 
 const (
-	width              = 800
-	height             = 600
-	WordWidth  float32 = 1500
-	WordHeight float32 = 1000
+	width  = 800
+	height = 600
 )
 
 var (
 	windowName = "Test Game"
-	game2D     = game.NewGame(width, height, WordWidth, WordHeight)
+	section    = 0
+	game2D     = game.NewC1(width, height)
 	deltaTime  = 0.0
 	lastFrame  = 0.0
 )
@@ -26,17 +25,23 @@ func main() {
 	window := initGlfw()
 	defer glfw.Terminate()
 	initOpenGL()
-	game2D.Init()
+	for _, m := range game2D.Maps {
+		if m != nil {
+			m.Create()
+		}
+	}
+	//game2D.Init()
 	for !window.ShouldClose() {
+		secMap := game2D.Maps[section]
 		currentFrame := glfw.GetTime()
 		deltaTime = currentFrame - lastFrame
 		lastFrame = currentFrame
 
 		glfw.PollEvents()
-		game2D.ProcessInput(float32(deltaTime))
-		game2D.Update(deltaTime)
+		//secMap.ProcessInput(float32(deltaTime))
+		secMap.Update(deltaTime)
 		gl.Clear(gl.COLOR_BUFFER_BIT)
-		game2D.Render(deltaTime)
+		secMap.Draw()
 		window.SwapBuffers()
 	}
 }
@@ -68,8 +73,8 @@ func initGlfw() *glfw.Window {
 func KeyCallback(w *glfw.Window, key glfw.Key, scancode int, action glfw.Action, mods glfw.ModifierKey) {
 	switch action {
 	case glfw.Press:
-		game2D.Keys[key] = true
+		game2D.Maps[section].SetKey(key, true)
 	case glfw.Release:
-		game2D.Keys[key] = false
+		game2D.Maps[section].SetKey(key, false)
 	}
 }

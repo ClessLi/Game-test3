@@ -4,37 +4,54 @@ import (
 	"github.com/ClessLi/Game-test/camera"
 	"github.com/ClessLi/Game-test/resource"
 	"github.com/ClessLi/Game-test/sprite"
+	"github.com/ClessLi/resolvForGame/resolv"
 	"github.com/go-gl/gl/v4.1-core/gl"
-	"github.com/go-gl/glfw/v3.1/glfw"
+	"github.com/go-gl/glfw/v3.2/glfw"
 	"github.com/go-gl/mathgl/mgl32"
 	"math"
 )
 
 type WorldInterface interface {
 	Create()
-	Update(delta float64)
+	Update(float64)
 	Draw()
 	Destroy()
+	SetKey(glfw.Key, bool)
+	GetKey(glfw.Key) bool
 }
 
 type GameMap struct {
-	Player            *Player
-	Map               *Space
-	FloatingPlatform  *Line
-	FloatingPlatformY float64
+	Player                *Player
+	Map                   *Space
+	FloatingPlatform      *Line
+	FloatingPlatformY     float64
+	FloatingPlatformDelta float64
 	//精灵渲染器
 	renderer *sprite.SpriteRenderer
 	//摄像头
 	camera *camera.Camera2D
 	Keys   [1024]bool
+	Init   func()
 	WorldSize
 }
 
 func (gm *GameMap) Create() {
 	c := int32(16)
 
+	//初始化着色器
+	resource.LoadShader("./glsl/shader.vs", "./glsl/shader.fs", "sprite")
+	shader := resource.GetShader("sprite")
+	shader.Use()
+	shader.SetInt("image", 0)
+	//初始化精灵渲染器
+	gm.renderer = sprite.NewSpriteRenderer(shader)
+	//设置投影
+	projection := mgl32.Ortho(0, float32(gm.ScreenWidth), float32(gm.ScreenHeight), 0, -1, 1)
+	shader.SetMatrix4fv("projection", &projection[0])
+
 	//加载资源
 	resource.LoadTexture(gl.TEXTURE0, "./image/platformLine.png", "platformLine")
+	resource.LoadTexture(gl.TEXTURE0, "./image/line.png", "line")
 	resource.LoadTexture(gl.TEXTURE0, "./image/spike.png", "spike")
 	resource.LoadTexture(gl.TEXTURE0, "./image/wall.png", "wall")
 	resource.LoadTexture(gl.TEXTURE0, "./image/bat/x.png", "x")
@@ -46,15 +63,9 @@ func (gm *GameMap) Create() {
 	resource.LoadTexture(gl.TEXTURE0, "./image/bat/5.png", "5")
 	resource.LoadTexture(gl.TEXTURE0, "./image/bat/6.png", "6")
 	resource.LoadTexture(gl.TEXTURE0, "./image/bat/7.png", "7")
-	//创建游戏地图
-	// = model.NewGameMap(game.worldWidth, game.worldHeight, "testMapFile")
-	//创建测试游戏人物
-	//gameObj := model.NewGameObj(resource.GetTexture("0"),
-	//    game.worldWidth/2,
-	//    game.worldHeight/2,
-	//    &mgl32.Vec2{100, 100},
-	//    0,
-	//    &mgl32.Vec3{1, 1, 1})
+
+	// 初始化地图
+	gm.Init()
 	//创建摄像头,将摄像头同步到玩家位置
 	gm.camera = camera.NewDefaultCamera(float32(gm.WorldHeight),
 		float32(gm.WorldWidth),
@@ -62,6 +73,7 @@ func (gm *GameMap) Create() {
 		float32(gm.ScreenHeight),
 		mgl32.Vec2{float32(gm.WorldWidth/2 - gm.ScreenWidth/2), float32(gm.WorldHeight/2 - gm.ScreenHeight/2)})
 
+	//创建测试游戏人物
 	gm.Player = NewRecPlayer(gm.WorldWidth/2, gm.WorldHeight/2, 100, 100, []*resource.Texture2D{
 		resource.GetTexture("0"),
 		resource.GetTexture("1"),
@@ -83,10 +95,13 @@ func (gm *GameMap) Create() {
 	}, 0, &mgl32.Vec3{1, 1, 1})
 
 	gm.Map.Add(gm.Player)
-	gm.FloatingPlatform = NewLine(c*8, gm.WorldHeight-c*7, c*9, gm.WorldHeight-c*6, nil, []*resource.Texture2D{resource.GetTexture("platformLine")})
+	gm.FloatingPlatform = NewLine(c*10, gm.WorldHeight-c*7, c*30, gm.WorldHeight-c*8, nil, []*resource.Texture2D{
+		resource.GetTexture("platformLine"),
+	})
 	gm.FloatingPlatform.AddTags("ramp")
 	gm.Map.Add(gm.FloatingPlatform)
 	gm.FloatingPlatformY = float64(gm.FloatingPlatform.Shape.Y)
+	gm.FloatingPlatformDelta = 0.0
 }
 
 func (gm *GameMap) Update(delta float64) {
@@ -96,7 +111,11 @@ func (gm *GameMap) Update(delta float64) {
 	accel := 0.5 + friction
 
 	maxSpd := float32(3)
-	gm.FloatingPlatformY += math.Sin(delta/1000) * .5
+	gm.FloatingPlatformDelta += delta
+	if gm.FloatingPlatformDelta > 60 {
+		gm.FloatingPlatformDelta -= 60
+	}
+	gm.FloatingPlatformY += math.Sin(gm.FloatingPlatformDelta/1000) * .5
 
 	gm.FloatingPlatform.Shape.Y = int32(gm.FloatingPlatformY)
 	gm.FloatingPlatform.Shape.Y2 = int32(gm.FloatingPlatformY) - 16
@@ -109,11 +128,17 @@ func (gm *GameMap) Update(delta float64) {
 		gm.Player.SpeedX = 0
 	}
 
+	playerMove := false
+
 	if gm.Keys[glfw.KeyRight] || gm.Keys[glfw.KeyD] {
+		playerMove = true
+		gm.Player.isXReverse = -1
 		gm.Player.SpeedX += accel
 	}
 
 	if gm.Keys[glfw.KeyLeft] || gm.Keys[glfw.KeyA] {
+		playerMove = true
+		gm.Player.isXReverse = 1
 		gm.Player.SpeedX -= accel
 	}
 
@@ -132,7 +157,14 @@ func (gm *GameMap) Update(delta float64) {
 	onGround := down.Colliding()
 
 	if (gm.Keys[glfw.KeyUp] || gm.Keys[glfw.KeyW]) && onGround {
+		playerMove = true
 		gm.Player.SpeedY = -8
+	}
+
+	if !playerMove {
+		gm.Player.MoveObj.Stand(float32(delta))
+	} else {
+		gm.Player.MoveObj.Move(float32(delta))
 	}
 
 	x := int32(gm.Player.SpeedX)
@@ -178,43 +210,29 @@ func (gm *GameMap) Update(delta float64) {
 
 func (gm *GameMap) Draw() {
 
-	//初始化着色器
-	resource.LoadShader("./glsl/shader.vs", "./glsl/shader.fs", "sprite")
-	shader := resource.GetShader("sprite")
-	shader.Use()
-	shader.SetInt("image", 0)
-	//设置投影
-	projection := mgl32.Ortho(0, float32(gm.WorldWidth), float32(gm.WorldHeight), 0, -1, 1)
-	shader.SetMatrix4fv("projection", &projection[0])
-	//初始化精灵渲染器
-	gm.renderer = sprite.NewSpriteRenderer(shader)
+	resource.GetShader("sprite").SetMatrix4fv("view", gm.camera.GetViewMatrix())
+	//game.player.MoveBy(float32(delta))
+	gm.Player.Draw(gm.renderer)
+	//摄像头跟随
+	px, py := gm.Player.GetXY()
+	size := gm.Player.GetSize()
+	gm.camera.InPosition(float32(px-gm.ScreenWidth/2)+size[0], float32(py-gm.ScreenHeight/2)+size[1])
 
+	// TO-DO: 由于渲染依赖camera，暂时将space内各个对象渲染放在这个位置
 	for _, shape := range *gm.Map {
-		rect, ok := shape.(*Rectangle)
+		switch shape.(type) {
+		case *Rectangle:
+			if shape != gm.Player.Rectangle && gm.isInCamera(shape) && (shape.HasTags("isWall") || shape.HasTags("isSpike")) {
 
-		if ok {
-
-			if rect != gm.Player.Rectangle && gm.isInCamera(rect) {
-
-				rect.Draw(gm.renderer)
-				//if rect.HasTags("isSpike") {
-				//    rect.Draw(gm.renderer)
-				//}
+				shape.Draw(gm.renderer)
 
 			}
+		case *Line:
+			if gm.isInCamera(shape) {
 
-		}
-
-		line, ok := shape.(*Line)
-
-		if ok {
-
-			if gm.isInCamera(line) {
-
-				line.Draw(gm.renderer)
+				shape.Draw(gm.renderer)
 
 			}
-
 		}
 
 	}
@@ -235,9 +253,17 @@ func (gm *GameMap) Destroy() {
 }
 
 func (gm *GameMap) isInCamera(shape Shape) bool {
-	x, y := shape.GetXY()
 	cp := gm.camera.GetPosition()
 	cx := int32(cp.X())
 	cy := int32(cp.Y())
-	return x >= cx && x < cx+gm.ScreenWidth && y >= cy && y < cy+gm.ScreenHeight
+	cameraRec := resolv.NewRectangle(cx, cy, gm.ScreenWidth, gm.ScreenHeight)
+	return cameraRec.IsColliding(shape.GetShapeObj())
+}
+
+func (gm *GameMap) SetKey(key glfw.Key, press bool) {
+	gm.Keys[key] = press
+}
+
+func (gm *GameMap) GetKey(key glfw.Key) bool {
+	return gm.Keys[key]
 }

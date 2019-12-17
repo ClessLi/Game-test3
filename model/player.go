@@ -2,7 +2,6 @@ package model
 
 import (
 	"github.com/ClessLi/Game-test/resource"
-	"github.com/ClessLi/Game-test/sprite"
 	"github.com/ClessLi/resolvForGame/resolv"
 	"github.com/go-gl/mathgl/mgl32"
 )
@@ -17,12 +16,11 @@ func NewRecPlayer(x, y, w, h int32, mTextures []*resource.Texture2D, sTextures [
 	moveObj := NewMoveObj(*NewGameBasicObj(sTextures[0], size, rotate, color), mTextures, sTextures)
 	player := &Player{&Rectangle{
 		Shape:   rec,
-		MoveObj: *moveObj,
+		MoveObj: moveObj,
 	}}
 	return player
 }
 
-func (p *Player) Draw(renderer *sprite.SpriteRenderer) {
-	x, y := p.Shape.GetXY()
-	renderer.DrawSprite(p.texture, &mgl32.Vec2{float32(x), float32(y)}, p.size, p.rotate, p.color, p.isXReverse)
-}
+//func (p *Player) Draw(renderer *sprite.SpriteRenderer) {
+//	p.Rectangle.Draw(renderer)
+//}
