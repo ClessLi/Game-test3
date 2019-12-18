@@ -1,6 +1,7 @@
 package model
 
 import (
+	"fmt"
 	"github.com/ClessLi/Game-test/camera"
 	"github.com/ClessLi/Game-test/resource"
 	"github.com/ClessLi/Game-test/sprite"
@@ -16,8 +17,15 @@ type WorldInterface interface {
 	Update(float64)
 	Draw()
 	Destroy()
-	SetKey(glfw.Key, bool)
-	GetKey(glfw.Key) bool
+	// 调整WorldInterface的SetKey(glfw.Key, bool)方法为SetKeyDown(glfw.Key)
+	SetKeyDown(glfw.Key)
+	// 新增IsPressed、PressedKey方法，用于判断按键是否已按下和标记按键已按下
+	IsPressed(...glfw.Key) bool
+	PressedKey(glfw.Key)
+	ReleaseKey(glfw.Key)
+	// 调整WorldInterface的GetKey(glfw.Key) bool方法为HasOneKeyDown(...glfw.Key) bool，
+	// 用于判断查询多个或单个按键中是否存在已按下的
+	HasOneKeyDown(...glfw.Key) bool
 }
 
 type GameMap struct {
@@ -29,9 +37,10 @@ type GameMap struct {
 	//精灵渲染器
 	renderer *sprite.SpriteRenderer
 	//摄像头
-	camera *camera.Camera2D
-	Keys   [1024]bool
-	Init   func()
+	camera     *camera.Camera2D
+	Keys       [1024]bool
+	LockedKeys [1024]bool
+	Init       func()
 	WorldSize
 }
 
@@ -130,13 +139,13 @@ func (gm *GameMap) Update(delta float64) {
 
 	playerMove := false
 
-	if gm.Keys[glfw.KeyRight] || gm.Keys[glfw.KeyD] {
+	if gm.HasOneKeyDown(glfw.KeyRight, glfw.KeyD) {
 		playerMove = true
 		gm.Player.isXReverse = -1
 		gm.Player.SpeedX += accel
 	}
 
-	if gm.Keys[glfw.KeyLeft] || gm.Keys[glfw.KeyA] {
+	if gm.HasOneKeyDown(glfw.KeyLeft, glfw.KeyA) {
 		playerMove = true
 		gm.Player.isXReverse = 1
 		gm.Player.SpeedX -= accel
@@ -156,8 +165,15 @@ func (gm *GameMap) Update(delta float64) {
 	down := gm.Map.Resolve(gm.Player, 0, 4)
 	onGround := down.Colliding()
 
-	if (gm.Keys[glfw.KeyUp] || gm.Keys[glfw.KeyW]) && onGround {
+	if gm.HasOneKeyDown(glfw.KeyUp, glfw.KeyW) && !gm.IsPressed(glfw.KeyUp, glfw.KeyW) && onGround && !gm.Player.HasTags("isDead") {
 		playerMove = true
+		// 现在跳跃按键按下后重复跳跃
+		if gm.HasOneKeyDown(glfw.KeyUp) {
+			gm.PressedKey(glfw.KeyUp)
+		}
+		if gm.HasOneKeyDown(glfw.KeyW) {
+			gm.PressedKey(glfw.KeyW)
+		}
 		gm.Player.SpeedY = -8
 	}
 
@@ -172,6 +188,7 @@ func (gm *GameMap) Update(delta float64) {
 
 	solids := gm.Map.FilterByTags("solid")
 	ramps := gm.Map.FilterByTags("ramp")
+	spikes := gm.Map.FilterByTags("isSpike")
 
 	// X-movement. We only want to collide with solid objects (not ramps) because we want to be able to move up them
 	// and don't need to be inhibited on the x-axis when doing so.
@@ -206,12 +223,27 @@ func (gm *GameMap) Update(delta float64) {
 
 	gm.Player.Shape.Y += y
 
+	//fmt.Println("check player is dead or not.")
+	// 判断用户是否已死亡
+	if res := spikes.Resolve(gm.Player, 0, 0); res.Colliding() {
+		fmt.Println("player is dead.")
+		gm.Player.AddTags("isDead")
+	}
+
+	if gm.Player.HasTags("isDead") {
+		gm.Player.SpeedX = 0
+	}
+
 }
 
 func (gm *GameMap) Draw() {
 
 	resource.GetShader("sprite").SetMatrix4fv("view", gm.camera.GetViewMatrix())
 	//game.player.MoveBy(float32(delta))
+	// 判断角色是否死亡
+	if gm.Player.HasTags("isDead") {
+		gm.Player.texture = resource.GetTexture("x")
+	}
 	gm.Player.Draw(gm.renderer)
 	//摄像头跟随
 	px, py := gm.Player.GetXY()
@@ -260,10 +292,33 @@ func (gm *GameMap) isInCamera(shape Shape) bool {
 	return cameraRec.IsColliding(shape.GetShapeObj())
 }
 
-func (gm *GameMap) SetKey(key glfw.Key, press bool) {
-	gm.Keys[key] = press
+func (gm *GameMap) SetKeyDown(key glfw.Key) {
+	gm.Keys[key] = true
 }
 
-func (gm *GameMap) GetKey(key glfw.Key) bool {
-	return gm.Keys[key]
+func (gm *GameMap) IsPressed(keys ...glfw.Key) bool {
+	for _, key := range keys {
+		if gm.LockedKeys[key] {
+			return true
+		}
+	}
+	return false
+}
+
+func (gm *GameMap) PressedKey(key glfw.Key) {
+	gm.LockedKeys[key] = true
+}
+
+func (gm *GameMap) ReleaseKey(key glfw.Key) {
+	gm.Keys[key] = false
+	gm.LockedKeys[key] = false
+}
+
+func (gm *GameMap) HasOneKeyDown(keys ...glfw.Key) bool {
+	for _, key := range keys {
+		if gm.Keys[key] {
+			return true
+		}
+	}
+	return false
 }

@@ -73,8 +73,8 @@ func initGlfw() *glfw.Window {
 func KeyCallback(w *glfw.Window, key glfw.Key, scancode int, action glfw.Action, mods glfw.ModifierKey) {
 	switch action {
 	case glfw.Press:
-		game2D.Maps[section].SetKey(key, true)
+		game2D.Maps[section].SetKeyDown(key)
 	case glfw.Release:
-		game2D.Maps[section].SetKey(key, false)
+		game2D.Maps[section].ReleaseKey(key)
 	}
 }

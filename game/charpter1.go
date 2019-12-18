@@ -12,7 +12,7 @@ type C1 game
 func NewC1(width, height int32) *C1 {
 	var (
 		ww int32 = 1600
-		wh int32 = 900
+		wh int32 = 400
 		sw int32 = 800
 		sh int32 = 600
 		cw int32 = 16
@@ -55,7 +55,7 @@ func NewC1(width, height int32) *C1 {
 				if y <= ch*4 || y >= wh-ch*4 || x <= cw*4 || x >= ww-cw*4 {
 					wallSize := &mgl32.Vec2{float32(cw), float32(ch)}
 					wallRec := resolv.NewRectangle(x, y, cw, ch)
-					wallRec.AddTags("isWall", "solid")
+					wallRec.AddTags("isWall", "solid", "ramp")
 					//if resource.GetTexture("wall") != nil {
 					//	fmt.Println("get Texture wall")
 					//} else {
@@ -78,7 +78,7 @@ func NewC1(width, height int32) *C1 {
 				if y == ch*5 && x > cw*4 && x < ww-cw*4 {
 					spikeSize := &mgl32.Vec2{float32(cw), float32(ch)}
 					spikeRec := resolv.NewRectangle(x, y, cw, ch)
-					spikeRec.AddTags("isSpike")
+					spikeRec.AddTags("isSpike", "injurious")
 					spikeObj := model.NewMoveObj(*model.NewGameBasicObj(resource.GetTexture("spike"),
 						spikeSize,
 						0,
