@@ -16,15 +16,14 @@ type Line struct {
 // NewLine returns a new Line instance.
 func NewLine(x, y, x2, y2 int32, moveTextures []*resource.Texture2D, standTextures []*resource.Texture2D) *Line {
 	l := &Line{Shape: resolv.NewLine(x, y, x2, y2)}
-	size := l.GetSize()
 	rotate := float32(math.Atan2(float64(l.Shape.Y-l.Shape.Y2), float64(l.Shape.X-l.Shape.X2)))
-	l.MoveObj = *NewMoveObj(*NewGameBasicObj(standTextures[0], &size, rotate, &mgl32.Vec3{1, 1, 1}), moveTextures, standTextures)
+	l.MoveObj = *NewMoveObj(*NewGameBasicObj(standTextures[0], l.GetSize(), rotate, &mgl32.Vec3{1, 1, 1}), moveTextures, standTextures)
 	return l
 }
 
-func (l *Line) GetSize() mgl32.Vec2 {
+func (l *Line) GetSize() *mgl32.Vec2 {
 	//return mgl32.Vec2{float32(math.Abs(float64(l.Shape.X - l.Shape.X2))), float32(math.Abs(float64(l.Shape.Y - l.Shape.Y2)))}
-	return mgl32.Vec2{float32(l.Shape.GetLength()), 1}
+	return &mgl32.Vec2{float32(l.Shape.GetLength()), 2}
 }
 
 func (l *Line) IsColliding(other Shape) bool {
@@ -82,9 +81,16 @@ func (l *Line) Move(x, y int32) {
 }
 
 func (l *Line) Draw(renderer *sprite.SpriteRenderer) {
-	renderer.DrawSprite(l.texture, &mgl32.Vec2{float32(l.Shape.X), float32(l.Shape.Y)}, l.size, l.rotate, l.color, l.isXReverse)
+	renderer.DrawSprite(l.texture, l.getDrawXY(), l.size, l.rotate, l.color, l.isXReverse)
 }
 
 func (l *Line) GetShapeObj() resolv.Shape {
 	return l.Shape
+}
+
+func (l *Line) getDrawXY() *mgl32.Vec2 {
+	centerX, centerY := l.Shape.Center()
+	drawX := float32(centerX) - float32(l.Shape.GetLength())/2
+	drawY := float32(centerY)
+	return &mgl32.Vec2{drawX, drawY}
 }
