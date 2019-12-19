@@ -1,6 +1,7 @@
 package model
 
 import (
+	"github.com/ClessLi/Game-test/resource"
 	"github.com/ClessLi/Game-test/sprite"
 	"github.com/ClessLi/resolvForGame/resolv"
 	"github.com/go-gl/mathgl/mgl32"
@@ -9,6 +10,18 @@ import (
 type Rectangle struct {
 	Shape *resolv.Rectangle
 	*MoveObj
+	friction float32
+	maxSpd   float32
+}
+
+// NewRectangle returns a new Rectangle instance.
+func NewRectangle(x, y, w, h int32, friction float32, moveTextures []*resource.Texture2D, standTextures []*resource.Texture2D) *Rectangle {
+	rec := &Rectangle{
+		Shape:    resolv.NewRectangle(x, y, w, h),
+		friction: friction,
+	}
+	rec.MoveObj = NewMoveObj(*NewGameBasicObj(standTextures[0], &mgl32.Vec2{float32(w), float32(h)}, 0, &mgl32.Vec3{1, 1, 1}), moveTextures, standTextures)
+	return rec
 }
 
 func (r *Rectangle) IsColliding(other Shape) bool {
@@ -71,4 +84,20 @@ func (r *Rectangle) Draw(renderer *sprite.SpriteRenderer) {
 
 func (r *Rectangle) GetShapeObj() resolv.Shape {
 	return r.Shape
+}
+
+func (r *Rectangle) GetFriction() float32 {
+	return r.friction
+}
+
+func (r *Rectangle) SetFriction(friction float32) {
+	r.friction = friction
+}
+
+func (r *Rectangle) GetMaxSpd() float32 {
+	return r.maxSpd
+}
+
+func (r *Rectangle) SetMaxSpd(spd float32) {
+	r.maxSpd = spd
 }

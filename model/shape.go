@@ -21,6 +21,10 @@ type Shape interface {
 	Move(int32, int32)
 	Draw(*sprite.SpriteRenderer)
 	GetShapeObj() resolv.Shape
+	GetFriction() float32
+	SetFriction(float32)
+	GetMaxSpd() float32
+	SetMaxSpd(float32)
 }
 
 type Circle struct {

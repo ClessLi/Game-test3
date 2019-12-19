@@ -10,14 +10,19 @@ import (
 
 type Line struct {
 	Shape *resolv.Line
-	MoveObj
+	*MoveObj
+	friction float32
+	maxSpd   float32
 }
 
 // NewLine returns a new Line instance.
-func NewLine(x, y, x2, y2 int32, moveTextures []*resource.Texture2D, standTextures []*resource.Texture2D) *Line {
-	l := &Line{Shape: resolv.NewLine(x, y, x2, y2)}
+func NewLine(x, y, x2, y2 int32, friction float32, moveTextures []*resource.Texture2D, standTextures []*resource.Texture2D) *Line {
+	l := &Line{
+		Shape:    resolv.NewLine(x, y, x2, y2),
+		friction: friction,
+	}
 	rotate := float32(math.Atan2(float64(l.Shape.Y-l.Shape.Y2), float64(l.Shape.X-l.Shape.X2)))
-	l.MoveObj = *NewMoveObj(*NewGameBasicObj(standTextures[0], l.GetSize(), rotate, &mgl32.Vec3{1, 1, 1}), moveTextures, standTextures)
+	l.MoveObj = NewMoveObj(*NewGameBasicObj(standTextures[0], l.GetSize(), rotate, &mgl32.Vec3{1, 1, 1}), moveTextures, standTextures)
 	return l
 }
 
@@ -93,4 +98,20 @@ func (l *Line) getDrawXY() *mgl32.Vec2 {
 	drawX := float32(centerX) - float32(l.Shape.GetLength())/2
 	drawY := float32(centerY)
 	return &mgl32.Vec2{drawX, drawY}
+}
+
+func (l *Line) GetFriction() float32 {
+	return l.friction
+}
+
+func (l *Line) SetFriction(friction float32) {
+	l.friction = friction
+}
+
+func (l *Line) GetMaxSpd() float32 {
+	return l.maxSpd
+}
+
+func (l *Line) SetMaxSpd(spd float32) {
+	l.maxSpd = spd
 }

@@ -10,6 +10,8 @@ type MoveObj struct {
 	SpeedX      float32
 	SpeedY      float32
 	BounceFrame float32
+	// 对象是否为移动状态
+	isMove bool
 	// 移动时的动画纹理
 	moveTextures []*resource.Texture2D
 	// 静止时的动画纹理
@@ -27,6 +29,7 @@ type MoveObj struct {
 func NewMoveObj(obj GameBasicObj, moveTextures []*resource.Texture2D, standTextures []*resource.Texture2D) *MoveObj {
 	return &MoveObj{
 		GameBasicObj:  obj,
+		isMove:        false,
 		moveTextures:  moveTextures,
 		standTextures: standTextures,
 		standIndex:    0,

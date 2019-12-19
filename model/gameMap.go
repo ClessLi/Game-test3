@@ -103,8 +103,10 @@ func (gm *GameMap) Create() {
 		resource.GetTexture("7"),
 	}, 0, &mgl32.Vec3{1, 1, 1})
 
+	gm.Player.SetFriction(0.5)
+	gm.Player.SetMaxSpd(5)
 	gm.Map.Add(gm.Player)
-	gm.FloatingPlatform = NewLine(c*10, gm.WorldHeight-c*7, c*30, gm.WorldHeight-c*8, nil, []*resource.Texture2D{
+	gm.FloatingPlatform = NewLine(c*10, gm.WorldHeight-c*7, c*30, gm.WorldHeight-c*8, 0.5, nil, []*resource.Texture2D{
 		resource.GetTexture("platformLine"),
 	})
 	gm.FloatingPlatform.AddTags("ramp")
@@ -114,12 +116,6 @@ func (gm *GameMap) Create() {
 }
 
 func (gm *GameMap) Update(delta float64) {
-	gm.Player.SpeedY += 0.5
-
-	friction := float32(0.5)
-	accel := 0.5 + friction
-
-	maxSpd := float32(3)
 	gm.FloatingPlatformDelta += delta
 	if gm.FloatingPlatformDelta > 60 {
 		gm.FloatingPlatformDelta -= 60
@@ -129,55 +125,25 @@ func (gm *GameMap) Update(delta float64) {
 	gm.FloatingPlatform.Shape.Y = int32(gm.FloatingPlatformY)
 	gm.FloatingPlatform.Shape.Y2 = int32(gm.FloatingPlatformY) - 16
 
-	if gm.Player.SpeedX > friction {
-		gm.Player.SpeedX -= friction
-	} else if gm.Player.SpeedX < -friction {
-		gm.Player.SpeedX += friction
-	} else {
-		gm.Player.SpeedX = 0
-	}
+	gm.Player.SpeedY += 0.5
+	// Check for a collision downwards by just attempting a resolution downwards and seeing if it collides with something.
+	down := gm.Map.Filter(func(shape Shape) bool {
+		if shape.HasTags("solid") || shape.HasTags("ramp") {
+			return true
+		}
+		return false
+	}).Resolve(gm.Player, 0, 4)
+	onGround := down.Colliding()
+	gm.Player.isMove = false
 
-	playerMove := false
-
-	if gm.HasOneKeyDown(glfw.KeyRight, glfw.KeyD) {
-		playerMove = true
-		gm.Player.isXReverse = -1
-		gm.Player.SpeedX += accel
-	}
-
-	if gm.HasOneKeyDown(glfw.KeyLeft, glfw.KeyA) {
-		playerMove = true
-		gm.Player.isXReverse = 1
-		gm.Player.SpeedX -= accel
-	}
-
-	if gm.Player.SpeedX > maxSpd {
-		gm.Player.SpeedX = maxSpd
-	}
-
-	if gm.Player.SpeedX < -maxSpd {
-		gm.Player.SpeedX = -maxSpd
-	}
+	// 角色左右移动
+	gm.playerMove(down)
 
 	// JUMP
 
-	// Check for a collision downwards by just attempting a resolution downwards and seeing if it collides with something.
-	down := gm.Map.Resolve(gm.Player, 0, 4)
-	onGround := down.Colliding()
+	gm.playerJump(onGround)
 
-	if gm.HasOneKeyDown(glfw.KeyUp, glfw.KeyW) && !gm.IsPressed(glfw.KeyUp, glfw.KeyW) && onGround && !gm.Player.HasTags("isDead") {
-		playerMove = true
-		// 现在跳跃按键按下后重复跳跃
-		if gm.HasOneKeyDown(glfw.KeyUp) {
-			gm.PressedKey(glfw.KeyUp)
-		}
-		if gm.HasOneKeyDown(glfw.KeyW) {
-			gm.PressedKey(glfw.KeyW)
-		}
-		gm.Player.SpeedY = -8
-	}
-
-	if !playerMove {
+	if !gm.Player.isMove {
 		gm.Player.MoveObj.Stand(float32(delta))
 	} else {
 		gm.Player.MoveObj.Move(float32(delta))
@@ -274,8 +240,8 @@ func (gm *GameMap) Draw() {
 	//        "-Platformer test-",
 	//        "You are the green square.",
 	//        "Use the arrow keys to move.",
-	//        "Press X to jump.",
-	//        "You can jump through blue ramps / platforms.")
+	//        "Press X to playerJump.",
+	//        "You can playerJump through blue ramps / platforms.")
 	//}
 
 }
@@ -321,4 +287,63 @@ func (gm *GameMap) HasOneKeyDown(keys ...glfw.Key) bool {
 		}
 	}
 	return false
+}
+
+func (gm *GameMap) playerJump(onGround bool) {
+	if gm.HasOneKeyDown(glfw.KeyUp, glfw.KeyW) && !gm.IsPressed(glfw.KeyUp, glfw.KeyW) && onGround && !gm.Player.HasTags("isDead") {
+		gm.Player.isMove = true
+		// 现在跳跃按键按下后重复跳跃
+		if gm.HasOneKeyDown(glfw.KeyUp) {
+			gm.PressedKey(glfw.KeyUp)
+		}
+		if gm.HasOneKeyDown(glfw.KeyW) {
+			gm.PressedKey(glfw.KeyW)
+		}
+		gm.Player.SpeedY = -8
+	}
+}
+
+func (gm *GameMap) playerMove(down Collision) {
+	onGround := down.Colliding()
+	friction := float32(0.01)
+	if onGround {
+		ground := down.ShapeB
+		fmt.Println(ground.GetTags())
+		if ground.GetFriction() <= gm.Player.GetFriction() {
+			friction = ground.GetFriction()
+		} else {
+			friction = gm.Player.GetFriction()
+		}
+	}
+	accel := gm.Player.GetFriction() + friction
+
+	if gm.Player.SpeedX > friction {
+		gm.Player.SpeedX -= friction
+	} else if gm.Player.SpeedX < -friction {
+		gm.Player.SpeedX += friction
+	} else {
+		gm.Player.SpeedX = 0
+	}
+
+	if gm.HasOneKeyDown(glfw.KeyRight, glfw.KeyD) && onGround {
+		gm.Player.isMove = true
+		gm.Player.isXReverse = -1
+		gm.Player.SpeedX += accel
+	}
+
+	if gm.HasOneKeyDown(glfw.KeyLeft, glfw.KeyA) && onGround {
+		gm.Player.isMove = true
+		gm.Player.isXReverse = 1
+		gm.Player.SpeedX -= accel
+	}
+
+	//fmt.Println(gm.Player.SpeedX)
+	if gm.Player.SpeedX > gm.Player.GetMaxSpd() {
+		gm.Player.SpeedX = gm.Player.GetMaxSpd()
+	}
+
+	if gm.Player.SpeedX < -gm.Player.GetMaxSpd() {
+		gm.Player.SpeedX = -gm.Player.GetMaxSpd()
+	}
+	//fmt.Println(gm.Player.SpeedX)
 }

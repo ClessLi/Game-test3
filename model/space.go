@@ -319,3 +319,37 @@ func (sp *Space) GetShapeObj() resolv.Shape {
 func (sp *Space) SetTexture(t *resource.Texture2D) {
 
 }
+
+func (sp *Space) GetFriction() float32 {
+	if len(*sp) > 0 {
+		return (*sp)[0].GetFriction()
+	}
+	return 0.0
+}
+
+func (sp *Space) SetFriction(friction float32) {
+	if len(*sp) > 0 {
+
+		for _, shape := range *sp {
+			shape.SetFriction(friction)
+		}
+
+	}
+}
+
+func (sp *Space) GetMaxSpd() float32 {
+	if len(*sp) > 0 {
+		return (*sp)[0].GetMaxSpd()
+	}
+	return 0.0
+}
+
+func (sp *Space) SetMaxSpd(spd float32) {
+	if len(*sp) > 0 {
+
+		for _, shape := range *sp {
+			shape.SetMaxSpd(spd)
+		}
+
+	}
+}
