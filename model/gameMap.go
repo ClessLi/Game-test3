@@ -308,7 +308,6 @@ func (gm *GameMap) playerMove(down Collision) {
 	friction := float32(0.01)
 	if onGround {
 		ground := down.ShapeB
-		fmt.Println(ground.GetTags())
 		if ground.GetFriction() <= gm.Player.GetFriction() {
 			friction = ground.GetFriction()
 		} else {
