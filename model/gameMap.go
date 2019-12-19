@@ -156,6 +156,16 @@ func (gm *GameMap) Update(delta float64) {
 	ramps := gm.Map.FilterByTags("ramp")
 	spikes := gm.Map.FilterByTags("isSpike")
 
+	//fmt.Println("check player is dead or not.")
+	// 判断用户是否已死亡
+	if res := spikes.Resolve(gm.Player, x, 0); res.Colliding() {
+		fmt.Println("player is dead.")
+		gm.Player.AddTags("isDead")
+	} else if res := spikes.Resolve(gm.Player, 0, y); res.Colliding() {
+		fmt.Println("player is dead.")
+		gm.Player.AddTags("isDead")
+	}
+
 	// X-movement. We only want to collide with solid objects (not ramps) because we want to be able to move up them
 	// and don't need to be inhibited on the x-axis when doing so.
 
@@ -189,16 +199,9 @@ func (gm *GameMap) Update(delta float64) {
 
 	gm.Player.Shape.Y += y
 
-	//fmt.Println("check player is dead or not.")
-	// 判断用户是否已死亡
-	if res := spikes.Resolve(gm.Player, 0, 0); res.Colliding() {
-		fmt.Println("player is dead.")
-		gm.Player.AddTags("isDead")
-	}
-
-	if gm.Player.HasTags("isDead") {
-		gm.Player.SpeedX = 0
-	}
+	//if gm.Player.HasTags("isDead") {
+	//	gm.Player.SpeedX = 0
+	//}
 
 }
 
@@ -220,13 +223,13 @@ func (gm *GameMap) Draw() {
 	for _, shape := range *gm.Map {
 		switch shape.(type) {
 		case *Rectangle:
-			if shape != gm.Player.Rectangle && gm.isInCamera(shape) && (shape.HasTags("isWall") || shape.HasTags("isSpike")) {
+			if shape != gm.Player.Rectangle && gm.isInCamera(shape) && !shape.HasTags("hide") {
 
 				shape.Draw(gm.renderer)
 
 			}
 		case *Line:
-			if gm.isInCamera(shape) {
+			if gm.isInCamera(shape) && !shape.HasTags("hide") {
 
 				shape.Draw(gm.renderer)
 
@@ -324,13 +327,13 @@ func (gm *GameMap) playerMove(down Collision) {
 		gm.Player.SpeedX = 0
 	}
 
-	if gm.HasOneKeyDown(glfw.KeyRight, glfw.KeyD) && onGround {
+	if gm.HasOneKeyDown(glfw.KeyRight, glfw.KeyD) && onGround && !gm.Player.HasTags("isDead") {
 		gm.Player.isMove = true
 		gm.Player.isXReverse = -1
 		gm.Player.SpeedX += accel
 	}
 
-	if gm.HasOneKeyDown(glfw.KeyLeft, glfw.KeyA) && onGround {
+	if gm.HasOneKeyDown(glfw.KeyLeft, glfw.KeyA) && onGround && !gm.Player.HasTags("isDead") {
 		gm.Player.isMove = true
 		gm.Player.isXReverse = 1
 		gm.Player.SpeedX -= accel
