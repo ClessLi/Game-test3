@@ -353,3 +353,18 @@ func (sp *Space) SetMaxSpd(spd float32) {
 
 	}
 }
+
+func (sp *Space) GetSpd() (float32, float32) {
+	if len(*sp) > 0 {
+
+		for _, shape := range *sp {
+			shape.GetSpd()
+		}
+
+	}
+	return 0, 0
+}
+
+func (sp *Space) SetSpd(float32, float32) {
+	// Do nothing
+}

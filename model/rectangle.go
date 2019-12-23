@@ -1,7 +1,6 @@
 package model
 
 import (
-	"github.com/ClessLi/Game-test/resource"
 	"github.com/ClessLi/Game-test/sprite"
 	"github.com/ClessLi/resolvForGame/resolv"
 	"github.com/go-gl/mathgl/mgl32"
@@ -12,15 +11,21 @@ type Rectangle struct {
 	*MoveObj
 	friction float32
 	maxSpd   float32
+	multiple float32
 }
 
 // NewRectangle returns a new Rectangle instance.
-func NewRectangle(x, y, w, h int32, friction float32, moveTextures []*resource.Texture2D, standTextures []*resource.Texture2D) *Rectangle {
+func NewRectangle(x, y, w, h int32, friction, drawMulti float32, moveList []string, standList []string) *Rectangle {
 	rec := &Rectangle{
 		Shape:    resolv.NewRectangle(x, y, w, h),
 		friction: friction,
+		multiple: drawMulti,
 	}
-	rec.MoveObj = NewMoveObj(*NewGameBasicObj(standTextures[0], &mgl32.Vec2{float32(w), float32(h)}, 0, &mgl32.Vec3{1, 1, 1}), moveTextures, standTextures)
+	var texture = ""
+	if len(standList) >= 0 {
+		texture = standList[0]
+	}
+	rec.MoveObj = NewMoveObj(*NewGameBasicObj(texture, &mgl32.Vec2{float32(w), float32(h)}, 0, &mgl32.Vec3{1, 1, 1}), moveList, standList)
 	return rec
 }
 
@@ -79,7 +84,14 @@ func (r *Rectangle) Move(x, y int32) {
 }
 
 func (r *Rectangle) Draw(renderer *sprite.SpriteRenderer) {
-	renderer.DrawSprite(r.texture, &mgl32.Vec2{float32(r.Shape.X), float32(r.Shape.Y)}, r.size, r.rotate, r.color, r.isXReverse)
+	size := &mgl32.Vec2{
+		r.size[0] + r.multiple*float32(r.Shape.W),
+		r.size[1] + r.multiple*float32(r.Shape.H),
+	}
+	renderer.DrawSprite(r.texture, &mgl32.Vec2{
+		float32(r.Shape.X) - r.multiple*float32(r.Shape.W)/2,
+		float32(r.Shape.Y) - r.multiple*float32(r.Shape.H)/2,
+	}, size, r.rotate, r.color, r.isXReverse)
 }
 
 func (r *Rectangle) GetShapeObj() resolv.Shape {
@@ -100,4 +112,13 @@ func (r *Rectangle) GetMaxSpd() float32 {
 
 func (r *Rectangle) SetMaxSpd(spd float32) {
 	r.maxSpd = spd
+}
+
+func (r *Rectangle) GetSpd() (float32, float32) {
+	return r.SpeedX, r.SpeedY
+}
+
+func (r *Rectangle) SetSpd(x, y float32) {
+	r.SpeedX = x
+	r.SpeedY = y
 }

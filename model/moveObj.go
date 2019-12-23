@@ -26,7 +26,9 @@ type MoveObj struct {
 	moveDelta float32
 }
 
-func NewMoveObj(obj GameBasicObj, moveTextures []*resource.Texture2D, standTextures []*resource.Texture2D) *MoveObj {
+func NewMoveObj(obj GameBasicObj, moveList []string, standList []string) *MoveObj {
+	moveTextures := GetTexturesByName(moveList...)
+	standTextures := GetTexturesByName(standList...)
 	return &MoveObj{
 		GameBasicObj:  obj,
 		isMove:        false,

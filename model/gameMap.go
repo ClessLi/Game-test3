@@ -1,15 +1,12 @@
 package model
 
 import (
-	"fmt"
 	"github.com/ClessLi/Game-test/camera"
 	"github.com/ClessLi/Game-test/resource"
 	"github.com/ClessLi/Game-test/sprite"
 	"github.com/ClessLi/resolvForGame/resolv"
-	"github.com/go-gl/gl/v4.1-core/gl"
 	"github.com/go-gl/glfw/v3.2/glfw"
 	"github.com/go-gl/mathgl/mgl32"
-	"math"
 )
 
 type WorldInterface interface {
@@ -29,11 +26,8 @@ type WorldInterface interface {
 }
 
 type GameMap struct {
-	Player                *Player
-	Map                   *Space
-	FloatingPlatform      *Line
-	FloatingPlatformY     float64
-	FloatingPlatformDelta float64
+	Player *Player
+	Map    *Space
 	//精灵渲染器
 	renderer *sprite.SpriteRenderer
 	//摄像头
@@ -45,8 +39,6 @@ type GameMap struct {
 }
 
 func (gm *GameMap) Create() {
-	c := int32(16)
-
 	//初始化着色器
 	resource.LoadShader("./glsl/shader.vs", "./glsl/shader.fs", "sprite")
 	shader := resource.GetShader("sprite")
@@ -58,21 +50,6 @@ func (gm *GameMap) Create() {
 	projection := mgl32.Ortho(0, float32(gm.ScreenWidth), float32(gm.ScreenHeight), 0, -1, 1)
 	shader.SetMatrix4fv("projection", &projection[0])
 
-	//加载资源
-	resource.LoadTexture(gl.TEXTURE0, "./image/platformLine.png", "platformLine")
-	resource.LoadTexture(gl.TEXTURE0, "./image/line.png", "line")
-	resource.LoadTexture(gl.TEXTURE0, "./image/spike.png", "spike")
-	resource.LoadTexture(gl.TEXTURE0, "./image/wall.png", "wall")
-	resource.LoadTexture(gl.TEXTURE0, "./image/bat/x.png", "x")
-	resource.LoadTexture(gl.TEXTURE0, "./image/bat/0.png", "0")
-	resource.LoadTexture(gl.TEXTURE0, "./image/bat/1.png", "1")
-	resource.LoadTexture(gl.TEXTURE0, "./image/bat/2.png", "2")
-	resource.LoadTexture(gl.TEXTURE0, "./image/bat/3.png", "3")
-	resource.LoadTexture(gl.TEXTURE0, "./image/bat/4.png", "4")
-	resource.LoadTexture(gl.TEXTURE0, "./image/bat/5.png", "5")
-	resource.LoadTexture(gl.TEXTURE0, "./image/bat/6.png", "6")
-	resource.LoadTexture(gl.TEXTURE0, "./image/bat/7.png", "7")
-
 	// 初始化地图
 	gm.Init()
 	//创建摄像头,将摄像头同步到玩家位置
@@ -83,52 +60,23 @@ func (gm *GameMap) Create() {
 		mgl32.Vec2{float32(gm.WorldWidth/2 - gm.ScreenWidth/2), float32(gm.WorldHeight/2 - gm.ScreenHeight/2)})
 
 	//创建测试游戏人物
-	gm.Player = NewRecPlayer(gm.WorldWidth/2, gm.WorldHeight/2, 100, 100, []*resource.Texture2D{
-		resource.GetTexture("0"),
-		resource.GetTexture("1"),
-		resource.GetTexture("2"),
-		resource.GetTexture("3"),
-		resource.GetTexture("4"),
-		resource.GetTexture("5"),
-		resource.GetTexture("6"),
-		resource.GetTexture("7"),
-	}, []*resource.Texture2D{
-		resource.GetTexture("0"),
-		resource.GetTexture("1"),
-		resource.GetTexture("2"),
-		resource.GetTexture("3"),
-		resource.GetTexture("4"),
-		resource.GetTexture("5"),
-		resource.GetTexture("6"),
-		resource.GetTexture("7"),
-	}, 0, &mgl32.Vec3{1, 1, 1})
-
-	gm.Player.SetFriction(0.5)
+	gm.Player = NewRecPlayer(gm.WorldWidth/2, gm.WorldHeight/2, 100, 100, 0.5, 0.5, []string{"0", "1", "2", "3", "4", "5", "6", "7"}, []string{"0", "1", "2", "3", "4", "5", "6", "7"})
 	gm.Player.SetMaxSpd(5)
+
+	gm.Player.weapon = NewFireBolt()
+
 	gm.Map.Add(gm.Player)
-	gm.FloatingPlatform = NewLine(c*10, gm.WorldHeight-c*7, c*30, gm.WorldHeight-c*8, 0.5, nil, []*resource.Texture2D{
-		resource.GetTexture("platformLine"),
-	})
-	gm.FloatingPlatform.AddTags("ramp")
-	gm.Map.Add(gm.FloatingPlatform)
-	gm.FloatingPlatformY = float64(gm.FloatingPlatform.Shape.Y)
-	gm.FloatingPlatformDelta = 0.0
 }
 
 func (gm *GameMap) Update(delta float64) {
-	gm.FloatingPlatformDelta += delta
-	if gm.FloatingPlatformDelta > 60 {
-		gm.FloatingPlatformDelta -= 60
-	}
-	gm.FloatingPlatformY += math.Sin(gm.FloatingPlatformDelta/1000) * .5
-
-	gm.FloatingPlatform.Shape.Y = int32(gm.FloatingPlatformY)
-	gm.FloatingPlatform.Shape.Y2 = int32(gm.FloatingPlatformY) - 16
-
 	gm.Player.SpeedY += 0.5
+
+	// 更新移动物体
+	gm.updateMove()
+
 	// Check for a collision downwards by just attempting a resolution downwards and seeing if it collides with something.
 	down := gm.Map.Filter(func(shape Shape) bool {
-		if shape.HasTags("solid") || shape.HasTags("ramp") {
+		if (shape.HasTags("solid") || shape.HasTags("ramp")) && !shape.HasTags("destroyed") {
 			return true
 		}
 		return false
@@ -143,6 +91,9 @@ func (gm *GameMap) Update(delta float64) {
 
 	gm.playerJump(onGround)
 
+	// Attack
+	gm.playerAttack(delta)
+
 	if !gm.Player.isMove {
 		gm.Player.MoveObj.Stand(float32(delta))
 	} else {
@@ -154,15 +105,12 @@ func (gm *GameMap) Update(delta float64) {
 
 	solids := gm.Map.FilterByTags("solid")
 	ramps := gm.Map.FilterByTags("ramp")
-	spikes := gm.Map.FilterByTags("isSpike")
+	dangers := gm.Map.FilterByTags("dangerous")
 
 	//fmt.Println("check player is dead or not.")
 	// 判断用户是否已死亡
-	if res := spikes.Resolve(gm.Player, x, 0); res.Colliding() {
-		fmt.Println("player is dead.")
-		gm.Player.AddTags("isDead")
-	} else if res := spikes.Resolve(gm.Player, 0, y); res.Colliding() {
-		fmt.Println("player is dead.")
+	if res := dangers.Resolve(gm.Player, x, y); res.Colliding() {
+		//fmt.Println("player is dead.")
 		gm.Player.AddTags("isDead")
 	}
 
@@ -234,6 +182,17 @@ func (gm *GameMap) Draw() {
 				shape.Draw(gm.renderer)
 
 			}
+		case *Circle:
+			if gm.isInCamera(shape) && !shape.HasTags("hide") && !shape.HasTags("destroyed") && !shape.HasTags("init") {
+
+				shape.Draw(gm.renderer)
+
+			}
+		}
+
+		if shape.HasTags("destroy") {
+			shape.RemoveTags("destroy")
+			shape.AddTags("destroyed")
 		}
 
 	}
@@ -302,7 +261,7 @@ func (gm *GameMap) playerJump(onGround bool) {
 		if gm.HasOneKeyDown(glfw.KeyW) {
 			gm.PressedKey(glfw.KeyW)
 		}
-		gm.Player.SpeedY = -8
+		gm.Player.SpeedY = -16
 	}
 }
 
@@ -327,15 +286,17 @@ func (gm *GameMap) playerMove(down Collision) {
 		gm.Player.SpeedX = 0
 	}
 
-	if gm.HasOneKeyDown(glfw.KeyRight, glfw.KeyD) && onGround && !gm.Player.HasTags("isDead") {
+	if gm.HasOneKeyDown(glfw.KeyLeft, glfw.KeyRight, glfw.KeyA, glfw.KeyD) {
 		gm.Player.isMove = true
-		gm.Player.isXReverse = -1
+	}
+
+	if gm.HasOneKeyDown(glfw.KeyRight, glfw.KeyD) && onGround && !gm.Player.HasTags("isDead") {
+		gm.Player.isXReverse = 1
 		gm.Player.SpeedX += accel
 	}
 
 	if gm.HasOneKeyDown(glfw.KeyLeft, glfw.KeyA) && onGround && !gm.Player.HasTags("isDead") {
-		gm.Player.isMove = true
-		gm.Player.isXReverse = 1
+		gm.Player.isXReverse = -1
 		gm.Player.SpeedX -= accel
 	}
 
@@ -348,4 +309,46 @@ func (gm *GameMap) playerMove(down Collision) {
 		gm.Player.SpeedX = -gm.Player.GetMaxSpd()
 	}
 	//fmt.Println(gm.Player.SpeedX)
+}
+
+func (gm *GameMap) playerAttack(delta float64) {
+	gm.Player.weapon.CoolDown(delta)
+
+	// 调整角色攻击矢量
+	if gm.Player.isXReverse < 0 {
+		gm.Player.AtkVec[0] = -1
+	} else {
+		gm.Player.AtkVec[0] = 1
+	}
+
+	if gm.HasOneKeyDown(glfw.KeyUp, glfw.KeyW) {
+		gm.Player.AtkVec[1] = -1
+	} else if gm.HasOneKeyDown(glfw.KeyDown, glfw.KeyS) {
+		gm.Player.AtkVec[1] = 1
+	} else {
+		gm.Player.AtkVec[1] = 0
+	}
+
+	if gm.HasOneKeyDown(glfw.KeyJ, glfw.KeySpace) && !gm.Player.HasTags("isDead") {
+		bolt := gm.Player.Attack()
+		if bolt != nil {
+			gm.Map.Add(bolt)
+		}
+	}
+}
+
+func (gm *GameMap) updateMove() {
+	move := gm.Map.FilterByTags("isMove")
+	for i := 0; i < move.Length(); i++ {
+		shape := move.Get(i)
+		X, Y := shape.GetXY()
+		x, y := shape.GetSpd()
+		if res := gm.Map.FilterByTags("solid").Resolve(shape, int32(x), int32(y)); res.Colliding() {
+			x = float32(res.ResolveX)
+			y = float32(res.ResolveY)
+			shape.SetSpd(x, y)
+			shape.AddTags("destroy")
+		}
+		shape.SetXY(X+int32(x), Y+int32(y))
+	}
 }

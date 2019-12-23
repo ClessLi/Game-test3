@@ -25,9 +25,6 @@ type Shape interface {
 	SetFriction(float32)
 	GetMaxSpd() float32
 	SetMaxSpd(float32)
-}
-
-type Circle struct {
-	Shape *resolv.Circle
-	MoveObj
+	GetSpd() (float32, float32)
+	SetSpd(float32, float32)
 }

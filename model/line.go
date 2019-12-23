@@ -1,7 +1,6 @@
 package model
 
 import (
-	"github.com/ClessLi/Game-test/resource"
 	"github.com/ClessLi/Game-test/sprite"
 	"github.com/ClessLi/resolvForGame/resolv"
 	"github.com/go-gl/mathgl/mgl32"
@@ -16,13 +15,17 @@ type Line struct {
 }
 
 // NewLine returns a new Line instance.
-func NewLine(x, y, x2, y2 int32, friction float32, moveTextures []*resource.Texture2D, standTextures []*resource.Texture2D) *Line {
+func NewLine(x, y, x2, y2 int32, friction float32, moveList []string, standList []string) *Line {
 	l := &Line{
 		Shape:    resolv.NewLine(x, y, x2, y2),
 		friction: friction,
 	}
+	var texture = ""
+	if len(standList) >= 0 {
+		texture = standList[0]
+	}
 	rotate := float32(math.Atan2(float64(l.Shape.Y-l.Shape.Y2), float64(l.Shape.X-l.Shape.X2)))
-	l.MoveObj = NewMoveObj(*NewGameBasicObj(standTextures[0], l.GetSize(), rotate, &mgl32.Vec3{1, 1, 1}), moveTextures, standTextures)
+	l.MoveObj = NewMoveObj(*NewGameBasicObj(texture, l.GetSize(), rotate, &mgl32.Vec3{1, 1, 1}), moveList, standList)
 	return l
 }
 
@@ -114,4 +117,13 @@ func (l *Line) GetMaxSpd() float32 {
 
 func (l *Line) SetMaxSpd(spd float32) {
 	l.maxSpd = spd
+}
+
+func (l *Line) GetSpd() (float32, float32) {
+	return l.SpeedX, l.SpeedY
+}
+
+func (l *Line) SetSpd(x, y float32) {
+	l.SpeedX = x
+	l.SpeedY = y
 }
